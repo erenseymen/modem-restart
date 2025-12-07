@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 /**
  * H3600 Modem Restart Script
- * Tek komutla modemi yeniden başlatır ve internet gelene kadar bekler
+ * Restarts the modem with a single command and waits until internet is restored
  * 
- * Özellikler:
- *   - Modem web arayüzüne bağlanarak yeniden başlatır
- *   - Restart sonrası internet bağlantısını belirli aralıklarla kontrol eder
- *   - Internet geldiğinde masaüstü bildirimi (notification) gönderir
+ * Features:
+ *   - Restarts modem via web interface
+ *   - Checks internet connection at regular intervals after restart
+ *   - Sends desktop notification when internet is restored
  * 
- * Kullanım: 
+ * Usage: 
  *   node restart.js [options]
- *   ./restart.js [options] (chmod +x ile çalıştırılabilir yapıldıktan sonra)
+ *   ./restart.js [options] (after making executable with chmod +x)
  * 
- * Parametreler:
- *   --url <url>           Modem URL'i (varsayılan: http://192.168.1.1/)
- *   --username <user>     Kullanıcı adı (varsayılan: admin)
- *   --password <pass>     Şifre (varsayılan: admin)
- *   --timeout <ms>        Zaman aşımı (ms) (varsayılan: 30000)
- *   --help                Bu yardım mesajını göster
+ * Options:
+ *   --url <url>           Modem URL (default: http://192.168.1.1/)
+ *   --username <user>     Username (default: admin)
+ *   --password <pass>     Password (default: admin)
+ *   --timeout <ms>        Timeout in ms (default: 30000)
+ *   --help                Show this help message
  * 
- * Örnek:
+ * Example:
  *   node restart.js --url http://192.168.1.1/ --username admin --password mypass123
  */
 
@@ -29,10 +29,10 @@ const dns = require('dns');
 const https = require('https');
 const http = require('http');
 
-// Internet kontrol ayarları
+// Internet check settings
 const INTERNET_CHECK_CONFIG = {
-    checkInterval: 5000,      // 5 saniye aralıkla kontrol
-    maxAttempts: 60,          // Maksimum 60 deneme (5 dakika)
+    checkInterval: 5000,      // Check every 5 seconds
+    maxAttempts: 60,          // Maximum 60 attempts (5 minutes)
     testUrls: [
         'https://www.google.com',
         'https://cloudflare.com',
@@ -41,7 +41,7 @@ const INTERNET_CHECK_CONFIG = {
     dnsServers: ['8.8.8.8', '1.1.1.1']
 };
 
-// Komut satırı parametrelerini parse et
+// Parse command line arguments
 function parseArgs() {
     const args = process.argv.slice(2);
     const parsed = {};
@@ -78,16 +78,16 @@ function showHelp() {
 H3600 Modem Restart Script
 ===========================
 
-Kullanım: node restart.js [options]
+Usage: node restart.js [options]
 
-Parametreler:
-  --url <url>           Modem URL'i (varsayılan: http://192.168.1.1/)
-  --username, -u <user> Kullanıcı adı (varsayılan: admin)
-  --password, -p <pass> Şifre (varsayılan: admin)
-  --timeout, -t <ms>    Zaman aşımı milisaniye (varsayılan: 30000)
-  --help, -h            Bu yardım mesajını göster
+Options:
+  --url <url>           Modem URL (default: http://192.168.1.1/)
+  --username, -u <user> Username (default: admin)
+  --password, -p <pass> Password (default: admin)
+  --timeout, -t <ms>    Timeout in milliseconds (default: 30000)
+  --help, -h            Show this help message
 
-Örnekler:
+Examples:
   node restart.js
   node restart.js --password mySecretPass
   node restart.js --url http://192.168.0.1/ --username root --password admin123
@@ -95,7 +95,7 @@ Parametreler:
 `);
 }
 
-// Varsayılan ayarlar
+// Default settings
 const DEFAULT_CONFIG = {
     url: 'http://192.168.1.1/',
     username: 'admin',
@@ -103,14 +103,14 @@ const DEFAULT_CONFIG = {
     timeout: 30000
 };
 
-// Komut satırı parametrelerini al ve varsayılanlarla birleştir
+// Get command line arguments and merge with defaults
 const userArgs = parseArgs();
 const MODEM_CONFIG = {
     ...DEFAULT_CONFIG,
     ...userArgs
 };
 
-// Renkli konsol çıktısı için
+// For colored console output
 const colors = {
     reset: '\x1b[0m',
     green: '\x1b[32m',
@@ -132,7 +132,7 @@ function log(message, type = 'info') {
     console.log(`[${timestamp}] ${icons[type] || icons.info} ${message}`);
 }
 
-// Desktop notification gönder (Linux notify-send)
+// Send desktop notification (Linux notify-send)
 function sendNotification(title, message, urgency = 'normal') {
     return new Promise((resolve) => {
         const iconPath = 'network-wireless'; // Sistem ikonu
@@ -140,14 +140,14 @@ function sendNotification(title, message, urgency = 'normal') {
 
         exec(command, (error) => {
             if (error) {
-                log(`Notification gönderilemedi: ${error.message}`, 'warning');
+                log(`Failed to send notification: ${error.message}`, 'warning');
             }
             resolve();
         });
     });
 }
 
-// DNS ile internet kontrolü
+// Check internet via DNS
 function checkDNS() {
     return new Promise((resolve) => {
         dns.resolve('google.com', (err) => {
@@ -156,7 +156,7 @@ function checkDNS() {
     });
 }
 
-// HTTP isteği ile internet kontrolü
+// Check internet via HTTP request
 function checkHTTP(url) {
     return new Promise((resolve) => {
         const protocol = url.startsWith('https') ? https : http;
@@ -174,7 +174,7 @@ function checkHTTP(url) {
     });
 }
 
-// Ping ile internet kontrolü (daha güvenilir)
+// Check internet via ping (more reliable)
 function checkPing(host = '8.8.8.8') {
     return new Promise((resolve) => {
         exec(`ping -c 1 -W 2 ${host}`, (error) => {
@@ -183,17 +183,17 @@ function checkPing(host = '8.8.8.8') {
     });
 }
 
-// Tüm yöntemlerle internet kontrolü
+// Check internet using all methods
 async function checkInternet() {
-    // Önce ping dene (en hızlı)
+    // Try ping first (fastest)
     const pingResult = await checkPing();
     if (pingResult) return true;
 
-    // DNS kontrolü
+    // DNS check
     const dnsResult = await checkDNS();
     if (dnsResult) return true;
 
-    // HTTP kontrolü (en son)
+    // HTTP check (last resort)
     for (const url of INTERNET_CHECK_CONFIG.testUrls) {
         const httpResult = await checkHTTP(url);
         if (httpResult) return true;
@@ -202,11 +202,11 @@ async function checkInternet() {
     return false;
 }
 
-// Internet gelene kadar bekle ve bildir
+// Wait for internet and notify
 async function waitForInternet() {
     log('', 'info');
     log('═══════════════════════════════════════════════', 'info');
-    log('Internet bağlantısı kontrol ediliyor...', 'info');
+    log('Checking internet connection...', 'info');
     log('═══════════════════════════════════════════════', 'info');
 
     let attempt = 0;
@@ -216,7 +216,7 @@ async function waitForInternet() {
         attempt++;
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
 
-        log(`Deneme ${attempt}/${INTERNET_CHECK_CONFIG.maxAttempts} (${elapsedSeconds} saniye geçti)...`, 'step');
+        log(`Attempt ${attempt}/${INTERNET_CHECK_CONFIG.maxAttempts} (${elapsedSeconds} seconds elapsed)...`, 'step');
 
         const hasInternet = await checkInternet();
 
@@ -225,35 +225,35 @@ async function waitForInternet() {
 
             console.log('');
             log('═══════════════════════════════════════════════', 'info');
-            log(`${colors.green}${colors.bold}🎉 Internet bağlantısı geri geldi!${colors.reset}`, 'success');
-            log(`Toplam bekleme süresi: ${totalTime} saniye`, 'info');
+            log(`${colors.green}${colors.bold}🎉 Internet connection restored!${colors.reset}`, 'success');
+            log(`Total wait time: ${totalTime} seconds`, 'info');
             log('═══════════════════════════════════════════════', 'info');
 
-            // Desktop notification gönder
+            // Send desktop notification
             await sendNotification(
-                '🌐 Internet Bağlantısı Geri Geldi!',
-                `Modem yeniden başlatma tamamlandı.\nBekleme süresi: ${totalTime} saniye`,
+                '🌐 Internet Connection Restored!',
+                `Modem restart completed.\nWait time: ${totalTime} seconds`,
                 'normal'
             );
 
             return true;
         }
 
-        // Bir sonraki kontrole kadar bekle
+        // Wait until next check
         await new Promise(resolve => setTimeout(resolve, INTERNET_CHECK_CONFIG.checkInterval));
     }
 
-    // Maksimum deneme sayısına ulaşıldı
+    // Maximum attempts reached
     const totalTime = Math.floor((Date.now() - startTime) / 1000);
 
     log('═══════════════════════════════════════════════', 'error');
-    log(`${colors.red}${colors.bold}⚠️ Internet bağlantısı ${totalTime} saniye içinde gelmedi!${colors.reset}`, 'error');
-    log('Modemi manuel olarak kontrol edin.', 'warning');
+    log(`${colors.red}${colors.bold}⚠️ Internet connection not restored after ${totalTime} seconds!${colors.reset}`, 'error');
+    log('Please check the modem manually.', 'warning');
     log('═══════════════════════════════════════════════', 'error');
 
     await sendNotification(
-        '⚠️ Internet Bağlantısı Yok!',
-        `${totalTime} saniye beklendi ancak internet gelmedi.\nModemi kontrol edin!`,
+        '⚠️ No Internet Connection!',
+        `Waited ${totalTime} seconds but internet did not come back.\nPlease check the modem!`,
         'critical'
     );
 
@@ -264,11 +264,11 @@ async function restartModem() {
     let browser;
 
     try {
-        log('Modem yeniden başlatma işlemi başlıyor...', 'info');
-        log(`Hedef: ${MODEM_CONFIG.url}`, 'info');
+        log('Starting modem restart process...', 'info');
+        log(`Target: ${MODEM_CONFIG.url}`, 'info');
 
-        // Headless browser başlat
-        log('Tarayıcı başlatılıyor...', 'step');
+        // Start headless browser
+        log('Starting browser...', 'step');
         browser = await puppeteer.launch({
             headless: 'new',
             args: [
@@ -282,46 +282,46 @@ async function restartModem() {
         const page = await browser.newPage();
         page.setDefaultTimeout(MODEM_CONFIG.timeout);
 
-        // Dialog handler'ı erken ayarla (confirmation dialog için)
+        // Set up dialog handler early (for confirmation dialog)
         let dialogHandled = false;
         page.on('dialog', async dialog => {
-            log(`Dialog algılandı: ${dialog.message()}`, 'info');
+            log(`Dialog detected: ${dialog.message()}`, 'info');
             await dialog.accept();
             dialogHandled = true;
-            log('Dialog kabul edildi!', 'success');
+            log('Dialog accepted!', 'success');
         });
 
-        // Modem sayfasına git
-        log('Modem sayfasına bağlanılıyor...', 'step');
+        // Navigate to modem page
+        log('Connecting to modem page...', 'step');
         await page.goto(MODEM_CONFIG.url, {
             waitUntil: 'networkidle2',
             timeout: MODEM_CONFIG.timeout
         });
 
-        // Giriş bilgilerini doldur
-        log('Giriş bilgileri giriliyor...', 'step');
+        // Fill in login credentials
+        log('Entering login credentials...', 'step');
 
-        // Username alanını bul ve doldur
+        // Find and fill username field
         await page.waitForSelector('input[name="Username"], input[id="Username"], input[type="text"]', { timeout: 10000 });
         await page.type('input[name="Username"], input[id="Username"], input[type="text"]', MODEM_CONFIG.username);
 
-        // Password alanını bul ve doldur
+        // Find and fill password field
         await page.type('input[name="Password"], input[id="Password"], input[type="password"]', MODEM_CONFIG.password);
 
-        // Giriş butonuna tıkla
-        log('Giriş yapılıyor...', 'step');
+        // Click login button
+        log('Logging in...', 'step');
         await page.click('input[id="LoginId"], input[type="submit"], button[type="submit"]');
 
-        // Sayfanın yüklenmesini bekle
+        // Wait for page to load
         await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => { });
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        log('Giriş başarılı!', 'success');
+        log('Login successful!', 'success');
 
-        // Yönetim menüsüne git
-        log('Yönetim sayfasına gidiliyor...', 'step');
+        // Navigate to management menu
+        log('Navigating to management page...', 'step');
 
-        // JavaScript ile menü linkini bul ve tıkla
+        // Find and click menu link via JavaScript
         await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll('a'));
             const mgmtLink = links.find(l =>
@@ -334,8 +334,8 @@ async function restartModem() {
 
         await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // Sistem Yönetimi sayfasına git
-        log('Sistem Yönetimi sayfasına gidiliyor...', 'step');
+        // Navigate to System Management page
+        log('Navigating to System Management page...', 'step');
         await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll('a'));
             const sysLink = links.find(l =>
@@ -348,31 +348,31 @@ async function restartModem() {
 
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Yeniden Başlat butonunu bul ve tıkla
-        log('Yeniden başlatma butonu aranıyor...', 'step');
+        // Find and click restart button
+        log('Searching for restart button...', 'step');
 
         const restartButton = await page.$('input[id="Btn_restart"], input.Btn_restart, button[id="Btn_restart"]');
 
         if (restartButton) {
-            log('Yeniden başlatma butonu bulundu!', 'success');
-            log('Modem yeniden başlatılıyor...', 'warning');
+            log('Restart button found!', 'success');
+            log('Restarting modem...', 'warning');
 
             await restartButton.click();
 
-            // Custom HTML dialog'un görünmesini bekle
-            log('Onay dialogu bekleniyor...', 'step');
+            // Wait for custom HTML dialog to appear
+            log('Waiting for confirmation dialog...', 'step');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // #confirmOK butonunu bul ve tıkla (modem custom dialog kullanıyor)
+            // Find and click #confirmOK button (modem uses custom dialog)
             const confirmButton = await page.$('#confirmOK, button#confirmOK, input#confirmOK');
 
             if (confirmButton) {
-                log('Onay dialogu bulundu!', 'success');
+                log('Confirmation dialog found!', 'success');
                 await confirmButton.click();
-                log('Yeniden başlatma onaylandı!', 'success');
+                log('Restart confirmed!', 'success');
             } else {
-                // Alternatif: Dialog görünür olmayabilir, sayfada confirmOK'u ara
-                log('Onay dialogu aranıyor (alternatif yöntem)...', 'warning');
+                // Alternative: Dialog may not be visible, search for confirmOK in page
+                log('Searching for confirmation dialog (alternative method)...', 'warning');
                 const confirmed = await page.evaluate(() => {
                     const okBtn = document.getElementById('confirmOK');
                     if (okBtn) {
@@ -383,17 +383,17 @@ async function restartModem() {
                 });
 
                 if (confirmed) {
-                    log('Yeniden başlatma onaylandı (JS ile)!', 'success');
+                    log('Restart confirmed (via JS)!', 'success');
                 } else {
-                    log('Onay butonu bulunamadı!', 'warning');
+                    log('Confirmation button not found!', 'warning');
                 }
             }
 
-            // Modem restart işleminin başlaması için bekle
+            // Wait for modem restart to begin
             await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
-            // Alternatif yöntem: JavaScript ile doğrudan restart fonksiyonunu çağır
-            log('Buton bulunamadı, alternatif yöntem deneniyor...', 'warning');
+            // Alternative method: Call restart function directly via JavaScript
+            log('Button not found, trying alternative method...', 'warning');
 
             await page.evaluate(() => {
                 // Sayfadaki tüm input butonlarını kontrol et
@@ -414,21 +414,21 @@ async function restartModem() {
 
         console.log('');
         log('═══════════════════════════════════════════════', 'info');
-        log(`${colors.green}${colors.bold}Modem yeniden başlatma işlemi tamamlandı!${colors.reset}`, 'success');
-        log('Modem yaklaşık 1-2 dakika içinde tekrar aktif olacaktır.', 'info');
+        log(`${colors.green}${colors.bold}Modem restart process completed!${colors.reset}`, 'success');
+        log('Modem will be active again in approximately 1-2 minutes.', 'info');
         log('═══════════════════════════════════════════════', 'info');
 
-        // Browser'ı kapat ve internet kontrolüne geç
+        // Close browser and start internet check
         if (browser) {
             await browser.close();
             browser = null;
         }
 
-        // Internet bağlantısını kontrol et
+        // Check internet connection
         await waitForInternet();
 
     } catch (error) {
-        log(`Hata oluştu: ${error.message}`, 'error');
+        log(`Error occurred: ${error.message}`, 'error');
         console.error(error);
         process.exit(1);
     } finally {
@@ -438,5 +438,5 @@ async function restartModem() {
     }
 }
 
-// Ana fonksiyonu çalıştır
+// Run main function
 restartModem();
