@@ -4,10 +4,10 @@ Node.js script to restart H3600 V9 modem with a single command.
 
 **Features:** Auto-login • Modem restart • Internet monitoring • Desktop notification
 
-## � Quick Start
+## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/modem-restart.git
+git clone https://github.com/erenseymen/modem-restart.git
 cd modem-restart && npm install
 npm start
 ```
