@@ -3,18 +3,90 @@
  * H3600 Modem Restart Script
  * Tek komutla modemi yeniden başlatır
  * 
- * Kullanım: node restart.js
- * Veya: ./restart.js (chmod +x ile çalıştırılabilir yapıldıktan sonra)
+ * Kullanım: 
+ *   node restart.js [options]
+ *   ./restart.js [options] (chmod +x ile çalıştırılabilir yapıldıktan sonra)
+ * 
+ * Parametreler:
+ *   --url <url>           Modem URL'i (varsayılan: http://192.168.1.1/)
+ *   --username <user>     Kullanıcı adı (varsayılan: admin)
+ *   --password <pass>     Şifre (varsayılan: admin)
+ *   --timeout <ms>        Zaman aşımı (ms) (varsayılan: 30000)
+ *   --help                Bu yardım mesajını göster
+ * 
+ * Örnek:
+ *   node restart.js --url http://192.168.1.1/ --username admin --password mypass123
  */
 
 const puppeteer = require('puppeteer');
 
-// Modem Ayarları
-const MODEM_CONFIG = {
+// Komut satırı parametrelerini parse et
+function parseArgs() {
+    const args = process.argv.slice(2);
+    const parsed = {};
+
+    for (let i = 0; i < args.length; i++) {
+        switch (args[i]) {
+            case '--url':
+                parsed.url = args[++i];
+                break;
+            case '--username':
+            case '-u':
+                parsed.username = args[++i];
+                break;
+            case '--password':
+            case '-p':
+                parsed.password = args[++i];
+                break;
+            case '--timeout':
+            case '-t':
+                parsed.timeout = parseInt(args[++i], 10);
+                break;
+            case '--help':
+            case '-h':
+                showHelp();
+                process.exit(0);
+        }
+    }
+
+    return parsed;
+}
+
+function showHelp() {
+    console.log(`
+H3600 Modem Restart Script
+===========================
+
+Kullanım: node restart.js [options]
+
+Parametreler:
+  --url <url>           Modem URL'i (varsayılan: http://192.168.1.1/)
+  --username, -u <user> Kullanıcı adı (varsayılan: admin)
+  --password, -p <pass> Şifre (varsayılan: admin)
+  --timeout, -t <ms>    Zaman aşımı milisaniye (varsayılan: 30000)
+  --help, -h            Bu yardım mesajını göster
+
+Örnekler:
+  node restart.js
+  node restart.js --password mySecretPass
+  node restart.js --url http://192.168.0.1/ --username root --password admin123
+  node restart.js -u admin -p password123 -t 60000
+`);
+}
+
+// Varsayılan ayarlar
+const DEFAULT_CONFIG = {
     url: 'http://192.168.1.1/',
     username: 'admin',
     password: 'admin',
     timeout: 30000
+};
+
+// Komut satırı parametrelerini al ve varsayılanlarla birleştir
+const userArgs = parseArgs();
+const MODEM_CONFIG = {
+    ...DEFAULT_CONFIG,
+    ...userArgs
 };
 
 // Renkli konsol çıktısı için
