@@ -1,1 +1,13 @@
-.vscode
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+{
+  "name": "modem-restart",
+  "version": "1.0.0",
+  "description": "H3600 Modem restart automation script",
+  "main": "restart.js",
+  "bin": {
+    "modem-restart": "./restart.js"
+  },
+  "scripts": {
+    "start": "node restart.js",
+    "restart": "node restart.js"
+  },
+  "keywords": [
+    "modem",
+    "restart",
+    "h3600",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "puppeteer": "^24.32.0"
+  }
+}

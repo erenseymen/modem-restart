@@ -1,0 +1,11 @@
+#!/bin/bash
+# Modem Restart Script
+# Tek komutla modemi yeniden başlatır
+#
+# Kullanım: modem-restart
+# Veya bu dosyayı /usr/local/bin/modem-restart olarak kopyalayın
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+node restart.js "$@"
