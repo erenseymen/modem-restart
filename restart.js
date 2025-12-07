@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
  * H3600 Modem Restart Script
- * Tek komutla modemi yeniden başlatır
+ * Tek komutla modemi yeniden başlatır ve internet gelene kadar bekler
+ * 
+ * Özellikler:
+ *   - Modem web arayüzüne bağlanarak yeniden başlatır
+ *   - Restart sonrası internet bağlantısını belirli aralıklarla kontrol eder
+ *   - Internet geldiğinde masaüstü bildirimi (notification) gönderir
  * 
  * Kullanım: 
  *   node restart.js [options]
@@ -19,6 +24,22 @@
  */
 
 const puppeteer = require('puppeteer');
+const { exec } = require('child_process');
+const dns = require('dns');
+const https = require('https');
+const http = require('http');
+
+// Internet kontrol ayarları
+const INTERNET_CHECK_CONFIG = {
+    checkInterval: 5000,      // 5 saniye aralıkla kontrol
+    maxAttempts: 60,          // Maksimum 60 deneme (5 dakika)
+    testUrls: [
+        'https://www.google.com',
+        'https://cloudflare.com',
+        'https://www.example.com'
+    ],
+    dnsServers: ['8.8.8.8', '1.1.1.1']
+};
 
 // Komut satırı parametrelerini parse et
 function parseArgs() {
@@ -109,6 +130,134 @@ function log(message, type = 'info') {
         step: `${colors.bold}→${colors.reset}`
     };
     console.log(`[${timestamp}] ${icons[type] || icons.info} ${message}`);
+}
+
+// Desktop notification gönder (Linux notify-send)
+function sendNotification(title, message, urgency = 'normal') {
+    return new Promise((resolve) => {
+        const iconPath = 'network-wireless'; // Sistem ikonu
+        const command = `notify-send -u ${urgency} -i "${iconPath}" "${title}" "${message}"`;
+
+        exec(command, (error) => {
+            if (error) {
+                log(`Notification gönderilemedi: ${error.message}`, 'warning');
+            }
+            resolve();
+        });
+    });
+}
+
+// DNS ile internet kontrolü
+function checkDNS() {
+    return new Promise((resolve) => {
+        dns.resolve('google.com', (err) => {
+            resolve(!err);
+        });
+    });
+}
+
+// HTTP isteği ile internet kontrolü
+function checkHTTP(url) {
+    return new Promise((resolve) => {
+        const protocol = url.startsWith('https') ? https : http;
+        const timeout = 5000;
+
+        const req = protocol.get(url, { timeout }, (res) => {
+            resolve(res.statusCode >= 200 && res.statusCode < 400);
+        });
+
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => {
+            req.destroy();
+            resolve(false);
+        });
+    });
+}
+
+// Ping ile internet kontrolü (daha güvenilir)
+function checkPing(host = '8.8.8.8') {
+    return new Promise((resolve) => {
+        exec(`ping -c 1 -W 2 ${host}`, (error) => {
+            resolve(!error);
+        });
+    });
+}
+
+// Tüm yöntemlerle internet kontrolü
+async function checkInternet() {
+    // Önce ping dene (en hızlı)
+    const pingResult = await checkPing();
+    if (pingResult) return true;
+
+    // DNS kontrolü
+    const dnsResult = await checkDNS();
+    if (dnsResult) return true;
+
+    // HTTP kontrolü (en son)
+    for (const url of INTERNET_CHECK_CONFIG.testUrls) {
+        const httpResult = await checkHTTP(url);
+        if (httpResult) return true;
+    }
+
+    return false;
+}
+
+// Internet gelene kadar bekle ve bildir
+async function waitForInternet() {
+    log('', 'info');
+    log('═══════════════════════════════════════════════', 'info');
+    log('Internet bağlantısı kontrol ediliyor...', 'info');
+    log('═══════════════════════════════════════════════', 'info');
+
+    let attempt = 0;
+    const startTime = Date.now();
+
+    while (attempt < INTERNET_CHECK_CONFIG.maxAttempts) {
+        attempt++;
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+        log(`Deneme ${attempt}/${INTERNET_CHECK_CONFIG.maxAttempts} (${elapsedSeconds} saniye geçti)...`, 'step');
+
+        const hasInternet = await checkInternet();
+
+        if (hasInternet) {
+            const totalTime = Math.floor((Date.now() - startTime) / 1000);
+
+            console.log('');
+            log('═══════════════════════════════════════════════', 'info');
+            log(`${colors.green}${colors.bold}🎉 Internet bağlantısı geri geldi!${colors.reset}`, 'success');
+            log(`Toplam bekleme süresi: ${totalTime} saniye`, 'info');
+            log('═══════════════════════════════════════════════', 'info');
+
+            // Desktop notification gönder
+            await sendNotification(
+                '🌐 Internet Bağlantısı Geri Geldi!',
+                `Modem yeniden başlatma tamamlandı.\nBekleme süresi: ${totalTime} saniye`,
+                'normal'
+            );
+
+            return true;
+        }
+
+        // Bir sonraki kontrole kadar bekle
+        await new Promise(resolve => setTimeout(resolve, INTERNET_CHECK_CONFIG.checkInterval));
+    }
+
+    // Maksimum deneme sayısına ulaşıldı
+    const totalTime = Math.floor((Date.now() - startTime) / 1000);
+
+    log('═══════════════════════════════════════════════', 'error');
+    log(`${colors.red}${colors.bold}⚠️ Internet bağlantısı ${totalTime} saniye içinde gelmedi!${colors.reset}`, 'error');
+    log('Modemi manuel olarak kontrol edin.', 'warning');
+    log('═══════════════════════════════════════════════', 'error');
+
+    await sendNotification(
+        '⚠️ Internet Bağlantısı Yok!',
+        `${totalTime} saniye beklendi ancak internet gelmedi.\nModemi kontrol edin!`,
+        'critical'
+    );
+
+    return false;
 }
 
 async function restartModem() {
@@ -268,6 +417,15 @@ async function restartModem() {
         log(`${colors.green}${colors.bold}Modem yeniden başlatma işlemi tamamlandı!${colors.reset}`, 'success');
         log('Modem yaklaşık 1-2 dakika içinde tekrar aktif olacaktır.', 'info');
         log('═══════════════════════════════════════════════', 'info');
+
+        // Browser'ı kapat ve internet kontrolüne geç
+        if (browser) {
+            await browser.close();
+            browser = null;
+        }
+
+        // Internet bağlantısını kontrol et
+        await waitForInternet();
 
     } catch (error) {
         log(`Hata oluştu: ${error.message}`, 'error');
