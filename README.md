@@ -1,6 +1,6 @@
 # 🔄 Modem Restart Automation
 
-Node.js script to restart H3600 V9 modem with a single command.
+Node.js script to restart ZTE H3600 V9 modem with a single command.
 
 **Features:** Auto-login • Modem restart • Internet monitoring • Desktop notification
 
