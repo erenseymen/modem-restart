@@ -24,7 +24,7 @@
  */
 
 const puppeteer = require('puppeteer');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const dns = require('dns');
 const https = require('https');
 const http = require('http');
@@ -260,6 +260,27 @@ async function waitForInternet() {
     return false;
 }
 
+async function launchBrowser(options) {
+    try {
+        return await puppeteer.launch(options);
+    } catch (error) {
+        if (error.message.includes('Could not find Chrome')) {
+            log('Chrome browser binary not found. Attempting to download...', 'warning');
+            try {
+                log('Running: npx puppeteer browsers install chrome', 'step');
+                execSync('npx puppeteer browsers install chrome', { stdio: 'inherit' });
+                log('Chrome browser installed successfully!', 'success');
+                return await puppeteer.launch(options);
+            } catch (installError) {
+                log(`Failed to auto-install Chrome: ${installError.message}`, 'error');
+                log('Please try running "npx puppeteer browsers install chrome" manually.', 'info');
+                throw error;
+            }
+        }
+        throw error;
+    }
+}
+
 async function restartModem() {
     let browser;
 
@@ -269,7 +290,7 @@ async function restartModem() {
 
         // Start headless browser
         log('Starting browser...', 'step');
-        browser = await puppeteer.launch({
+        const launchOptions = {
             headless: 'new',
             args: [
                 '--no-sandbox',
@@ -277,7 +298,8 @@ async function restartModem() {
                 '--disable-dev-shm-usage',
                 '--disable-gpu'
             ]
-        });
+        };
+        browser = await launchBrowser(launchOptions);
 
         const page = await browser.newPage();
         page.setDefaultTimeout(MODEM_CONFIG.timeout);
