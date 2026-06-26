@@ -1,8 +1,8 @@
-# 🔄 Modem Restart Automation
+# 🔄 Router/Modem Restart Automation
 
-Node.js script to restart ZTE H3600 V9 modem with a single command.
+Node.js script to restart ZTE H3600 V9 Router/Modem with a single command.
 
-**Features:** Auto-login • Modem restart • Internet monitoring • Desktop notification
+**Features:** Auto-login • Router/Modem restart • Internet monitoring • Desktop notification
 
 ## 🚀 Quick Start
 
@@ -37,7 +37,7 @@ node restart.js --url http://192.168.1.1/ -u admin -p myPass
 
 **Chrome won't start:** `sudo apt-get install -y libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libnss3 libcups2 libxss1 libxrandr2 libasound2 libpangocairo-1.0-0 libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0`
 
-**Timeout errors:** Check modem IP and credentials.
+**Timeout errors:** Check Router/Modem IP and credentials.
 
 ---
 
